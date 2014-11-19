@@ -1,0 +1,132 @@
+---
+title: "Predictive Machine Learning - Assignment Write-up"
+author: "Vinayak D. Machan"
+date: "Tuesday, November 18, 2014"
+output: html_document
+---
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+## Data 
+
+The training data for this project was downloaded from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data for this project was downloaded from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Data Preparation
+
+The data has about 158 variables that can be used to predict the dependent variable - classe. On closer examination quite a few of these variables have NA or null values and appear to not be relevant. We remove these variables from our training data set to get a resulting 58 predictor variables. Even these are more than what a linear regression can reasonably handle. 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Load requisite packages
+library(randomForest)
+library(caret)
+library(MASS)
+library(gbm)
+
+# Load the training data
+pml_training <- read.csv("pml-training.csv")
+
+rel_pml_training <- data.frame(cbind(user_name=pml_training$user_name,new_window=pml_training$new_window,num_window=pml_training$num_window,roll_belt=pml_training$roll_belt,pitch_belt=pml_training$pitch_belt,yaw_belt=pml_training$yaw_belt,total_accel_belt=pml_training$total_accel_belt,gyros_belt_x=pml_training$gyros_belt_x,gyros_belt_y=pml_training$gyros_belt_y,gyros_belt_z=pml_training$gyros_belt_z,accel_belt_x=pml_training$accel_belt_x,accel_belt_y=pml_training$accel_belt_y,accel_belt_z=pml_training$accel_belt_z,magnet_belt_x=pml_training$magnet_belt_x,magnet_belt_y=pml_training$magnet_belt_y,magnet_belt_z=pml_training$magnet_belt_z,roll_arm=pml_training$roll_arm,pitch_arm=pml_training$pitch_arm,yaw_arm=pml_training$yaw_arm,total_accel_arm=pml_training$total_accel_arm,gyros_arm_x=pml_training$gyros_arm_x,gyros_arm_y=pml_training$gyros_arm_y,gyros_arm_z=pml_training$gyros_arm_z,accel_arm_x=pml_training$accel_arm_x,accel_arm_y=pml_training$accel_arm_y,magnet_arm_x=pml_training$magnet_arm_x,magnet_arm_y=pml_training$magnet_arm_y,magnet_arm_z=pml_training$magnet_arm_z,roll_dumbbell=pml_training$roll_dumbbell,pitch_dumbbell=pml_training$pitch_dumbbell,yaw_dumbbell=pml_training$yaw_dumbbell,total_accel_dumbbell=pml_training$total_accel_dumbbell,gyros_dumbbell_x=pml_training$gyros_dumbbell_x,gyros_dumbbell_y=pml_training$gyros_dumbbell_y,gyros_dumbbell_z=pml_training$gyros_dumbbell_z,accel_dumbbell_x=pml_training$accel_dumbbell_x,accel_dumbbell_y=pml_training$accel_dumbbell_y,accel_dumbbell_z=pml_training$accel_dumbbell_z,magnet_dumbbell_x=pml_training$magnet_dumbbell_x,magnet_dumbbell_y=pml_training$magnet_dumbbell_y,magnet_dumbbell_z=pml_training$magnet_dumbbell_z,roll_forearm=pml_training$roll_forearm,pitch_forearm=pml_training$pitch_forearm,yaw_forearm=pml_training$yaw_forearm,total_accel_forearm=pml_training$total_accel_forearm,gyros_forearm_x=pml_training$gyros_forearm_x,gyros_forearm_y=pml_training$gyros_forearm_y,gyros_forearm_z=pml_training$gyros_forearm_z,accel_forearm_x=pml_training$accel_forearm_x,accel_forearm_y=pml_training$accel_forearm_y,accel_forearm_z=pml_training$accel_forearm_z,magnet_forearm_x=pml_training$magnet_forearm_x,magnet_forearm_y=pml_training$magnet_forearm_y,magnet_forearm_z=pml_training$magnet_forearm_z,problem_id=pml_training$problem_id, classe=pml_training$classe))
+
+```
+
+We split the training set into training (10%) and test (90%) sets. 
+
+```{r echo=FALSE,warning=FALSE}
+set.seed(77277)
+
+in_train10pct <- createDataPartition(y=rel_pml_training$classe, p=0.1, list=FALSE)
+train10pct <- rel_pml_training[in_train10pct,]
+test90pct <- rel_pml_training[-in_train10pct,]
+
+# Convert the dependent variable to factor since it can only have 5 distinct values
+train10pct$classe <- factor(train10pct$classe)
+test90pct$classe <- factor(test90pct$classe)
+```
+
+### Now fit a model using random forests to the training partition
+We use the training set to build a random forest model. We then evaluate using the corresponding test set. We repeat this for several iterations.
+
+We chose random forests as this is an ensemble learning method used for classification and regression.  Many samples are selected in the process and a measure of variable importance can be obtained. Also this is appropriate when working with an extremely high number of candidate variables that need to be reduced as in our case with the already reduced set of 58. We do a 7 fold cross validation using the caret libraries train control parameters.
+
+```{r echo=FALSE,warning=FALSE}
+# modRF <- randomForest(classe ~ ., data=train10pct, proximity=TRUE, type=classification)
+modRF <- train(classe ~ ., train10pct, method="rf", trControl=trainControl(method="cv", number=7), prox=TRUE, allowParallel=TRUE)
+
+```
+
+### Random forests model summary
+The fitted model has an accuracy of 0.961 or 96.1% which was obtained by trying 28 variables (mtry) at each point of classification in the algorithm.
+
+The final model shows that we have an out-of-sample/bag error rate of 3.41%. 
+The confusion matrix in addition shows that we have a reasonably low values for the classes.error.
+
+```{r warning=FALSE}
+modRF
+modRF$finalModel
+```
+## What does this tell us?
+Our goal is to predict how well a person performs an exercise given the sensor values that we monitor. 
+
+After predicting the values we then compute the percentage accuracy. We see that the model prediction is accurate ~96% of the time. The plot A in appendix shows the error rate when classifying each of the different classe's.
+
+```{r echo=FALSE,warning=FALSE}
+# Now we try and predict the dependent variable classe for the test data set
+predRF <- predict(modRF, newdata=test90pct)
+
+# Check accurate this model is
+# table(predRF, test90pct$classe)
+
+# Percentage of times the predicted value is equal to the actual value in the test set
+sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100
+```
+## Predict the values for the real test data set
+Now we use the real test data of 20 and predict the classe values for these using the fitted random forest model that we have built
+
+```{r echo=FALSE,warning=FALSE}
+# Load the test data
+pml_testing = read.csv("pml-testing.csv")
+
+reducedTest <- data.frame(cbind(user_name=pml_testing$user_name,new_window=pml_testing$new_window,num_window=pml_testing$num_window,roll_belt=pml_testing$roll_belt,pitch_belt=pml_testing$pitch_belt,yaw_belt=pml_testing$yaw_belt,total_accel_belt=pml_testing$total_accel_belt,gyros_belt_x=pml_testing$gyros_belt_x,gyros_belt_y=pml_testing$gyros_belt_y,gyros_belt_z=pml_testing$gyros_belt_z,accel_belt_x=pml_testing$accel_belt_x,accel_belt_y=pml_testing$accel_belt_y,accel_belt_z=pml_testing$accel_belt_z,magnet_belt_x=pml_testing$magnet_belt_x,magnet_belt_y=pml_testing$magnet_belt_y,magnet_belt_z=pml_testing$magnet_belt_z,roll_arm=pml_testing$roll_arm,pitch_arm=pml_testing$pitch_arm,yaw_arm=pml_testing$yaw_arm,total_accel_arm=pml_testing$total_accel_arm,gyros_arm_x=pml_testing$gyros_arm_x,gyros_arm_y=pml_testing$gyros_arm_y,gyros_arm_z=pml_testing$gyros_arm_z,accel_arm_x=pml_testing$accel_arm_x,accel_arm_y=pml_testing$accel_arm_y,magnet_arm_x=pml_testing$magnet_arm_x,magnet_arm_y=pml_testing$magnet_arm_y,magnet_arm_z=pml_testing$magnet_arm_z,roll_dumbbell=pml_testing$roll_dumbbell,pitch_dumbbell=pml_testing$pitch_dumbbell,yaw_dumbbell=pml_testing$yaw_dumbbell,total_accel_dumbbell=pml_testing$total_accel_dumbbell,gyros_dumbbell_x=pml_testing$gyros_dumbbell_x,gyros_dumbbell_y=pml_testing$gyros_dumbbell_y,gyros_dumbbell_z=pml_testing$gyros_dumbbell_z,accel_dumbbell_x=pml_testing$accel_dumbbell_x,accel_dumbbell_y=pml_testing$accel_dumbbell_y,accel_dumbbell_z=pml_testing$accel_dumbbell_z,magnet_dumbbell_x=pml_testing$magnet_dumbbell_x,magnet_dumbbell_y=pml_testing$magnet_dumbbell_y,magnet_dumbbell_z=pml_testing$magnet_dumbbell_z,roll_forearm=pml_testing$roll_forearm,pitch_forearm=pml_testing$pitch_forearm,yaw_forearm=pml_testing$yaw_forearm,total_accel_forearm=pml_testing$total_accel_forearm,gyros_forearm_x=pml_testing$gyros_forearm_x,gyros_forearm_y=pml_testing$gyros_forearm_y,gyros_forearm_z=pml_testing$gyros_forearm_z,accel_forearm_x=pml_testing$accel_forearm_x,accel_forearm_y=pml_testing$accel_forearm_y,accel_forearm_z=pml_testing$accel_forearm_z,magnet_forearm_x=pml_testing$magnet_forearm_x,magnet_forearm_y=pml_testing$magnet_forearm_y,magnet_forearm_z=pml_testing$magnet_forearm_z,problem_id=pml_testing$problem_id))
+
+# Predict the classe values for the test set
+predRFtest <- predict(modRF, newdata=reducedTest)
+# predRFtest
+
+# Populate another array with character values (A, B, C, D, E) based on the 1 to 5 values obtained above
+predRFtest_classe = ifelse(predRFtest==1, "A", ifelse(predRFtest==2, "B", ifelse(predRFtest==3, "C", ifelse(predRFtest==4, "D", ifelse(predRFtest==5, "E", 0)))))
+predRFtest_classe
+
+# Now write out the expected values to different files to submit to the test web site
+# Below function provided by test site to produce the files to submit
+pml_write_files = function(x){
+n = length(x)
+for(i in 1:n){
+filename = paste0("problem_id_",i,".txt")
+write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+}
+}
+
+# Create the files by calling the function and passing the array of expected classe values
+# pml_write_files(predRFtest_classe)
+```
+\pagebreak
+
+APPENDIX
+========
+### Plot of error rate for each classe value by the number of trees
+
+```{r echo=FALSE, warning=FALSE,message=FALSE}
+colnameserrrate = colnames(modRF$finalModel$err.rate)
+colnamestoplot = ifelse(colnameserrrate==1, "A", ifelse(colnameserrrate==2, "B", ifelse(colnameserrrate==3, "C", ifelse(colnameserrrate==4, "D", ifelse(colnameserrrate==5, "E", "OOB")))))
+
+layout(matrix(c(1,2),nrow=1),width=c(4,1))
+par(mar=c(5,4,4,0))
+plot(modRF$finalModel, log="y")
+par(mar=c(5,0,4,2))
+plot(c(0,1), type="n", axes=F, xlab="", ylab="")
+legend("top", colnamestoplot, col=1:4, cex=0.8, fill=1:4)
+```
