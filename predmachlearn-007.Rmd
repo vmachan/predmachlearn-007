@@ -52,14 +52,14 @@ We use the training set to build a random forest model. We then evaluate using t
 
 We chose random forests as this is an ensemble learning method used for classification and regression.  Many samples are selected in the process and a measure of variable importance can be obtained. Also this is appropriate when working with an extremely high number of candidate variables that need to be reduced as in our case with the already reduced set of 58. We do a 7 fold cross validation using the caret libraries train control parameters.
 
-```{r echo=FALSE,warning=FALSE}
+```{r echo=FALSE,warning=FALSE, message=FALSE}
 # modRF <- randomForest(classe ~ ., data=train10pct, proximity=TRUE, type=classification)
 modRF <- train(classe ~ ., train10pct, method="rf", trControl=trainControl(method="cv", number=7), prox=TRUE, allowParallel=TRUE)
 
 ```
 
 ### Random forests model summary
-The fitted model has an accuracy of 0.961 or 96.1% which was obtained by trying 28 variables (mtry) at each point of classification in the algorithm.
+The fitted model has an accuracy of 0.961 or 96.1% which was obtained by trying `r modRF$finalModel$mtry` variables (mtry) at each point of classification in the algorithm.
 
 The final model shows that we have an out-of-sample/bag error rate of 3.41%. 
 The confusion matrix in addition shows that we have a reasonably low values for the classes.error.
@@ -71,11 +71,9 @@ modRF$finalModel
 ## What does this tell us?
 Our goal is to predict how well a person performs an exercise given the sensor values that we monitor. 
 
-After predicting the values we then compute the percentage accuracy. We see that the model prediction is accurate ~96% of the time. The plot A in appendix shows the error rate when classifying each of the different classe's.
-
 ```{r echo=FALSE,warning=FALSE}
 # Now we try and predict the dependent variable classe for the test data set
-predRF <- predict(modRF, newdata=test90pct)
+predRF <- predict(modRF$finalModel, newdata=test90pct)
 
 # Check accurate this model is
 # table(predRF, test90pct$classe)
@@ -83,10 +81,13 @@ predRF <- predict(modRF, newdata=test90pct)
 # Percentage of times the predicted value is equal to the actual value in the test set
 sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100
 ```
-## Predict the values for the real test data set
-Now we use the real test data of 20 and predict the classe values for these using the fitted random forest model that we have built
 
-```{r echo=FALSE,warning=FALSE}
+After predicting the values we then compute the percentage accuracy. We see that the model prediction is accurate `r sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100`% of the time. The plot A in appendix shows the error rate when classifying each of the different classe's.
+
+## Predict the values for the real test data set
+We then use the real test data of 20 and predict the classe values for these using the fitted random forest model that we have built. These are then uploaded to the submission site. The results are not displayed here. 
+
+```{r echo=FALSE,warning=FALSE, message=FALSE}
 # Load the test data
 pml_testing = read.csv("pml-testing.csv")
 
@@ -94,11 +95,10 @@ reducedTest <- data.frame(cbind(user_name=pml_testing$user_name,new_window=pml_t
 
 # Predict the classe values for the test set
 predRFtest <- predict(modRF$finalModel, newdata=reducedTest)
-# predRFtest
 
 # Populate another array with character values (A, B, C, D, E) based on the 1 to 5 values obtained above
 predRFtest_classe = ifelse(predRFtest==1, "A", ifelse(predRFtest==2, "B", ifelse(predRFtest==3, "C", ifelse(predRFtest==4, "D", ifelse(predRFtest==5, "E", 0)))))
-predRFtest_classe
+# predRFtest_classe
 
 # Now write out the expected values to different files to submit to the test web site
 # Below function provided by test site to produce the files to submit
