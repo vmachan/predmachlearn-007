@@ -46,6 +46,26 @@ test90pct <- rel_pml_training[-in_train10pct,]
 train10pct$classe <- factor(train10pct$classe)
 test90pct$classe <- factor(test90pct$classe)
 ```
+### Model Comparisons
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+# Use the train function default without specifying any method for the model
+modDefault <- train(classe ~ ., train10pct, trControl=trainControl(method="cv", number=7), preProcess=c("pca"))
+predDefault <- predict(modDefault, newdata=test90pct)
+accuracyDefault <- sum(predDefault==test90pct$classe)/(nrow(test90pct)) * 100
+
+# Use the train function and specify method of GBM
+modGBM <- train(classe ~ .,train10pct,  method="gbm", trControl=trainControl(method="cv", number=7), verbose=FALSE)
+predGBM <- predict(modGBM, newdata=test90pct)
+accuracyGBM <- sum(predGBM==test90pct$classe)/(nrow(test90pct)) * 100
+```
+
+A few kinds of techniques were tried to assess what kind of model would work better. The caret train function was used for all of these
+
+* __Default:__ With preprocessing using principal component analysis (PCA) to reduce the number of variables further. No model type was specified using the method parameter. This was the lowest accurate model with about `r accuracyDefault`% accuracy. Caret's train used the random forest model but stopped at an mtry value of 2.
+* __Boosting:__ With model type of GBM (Boosting). This was better than the above and provided an accuracy of around `r accuracyGBM`%.
+* __Random Forests:__ With model type of RF (Random Forests). This was better than both the above. The accuracy and model details are listed later in the paper.
+
+Based on the above, the random forests model was selected for further processing and predicting using the test set.
 
 ### Now fit a model using random forests to the training partition
 We use the training set to build a random forest model. We then evaluate using the corresponding test set. We repeat this for several iterations.
@@ -59,16 +79,16 @@ modRF <- train(classe ~ ., train10pct, method="rf", trControl=trainControl(metho
 ```
 
 ### Random forests model summary
-The fitted model has an accuracy of 0.961 or 96.1% which was obtained by trying `r modRF$finalModel$mtry` variables (mtry) at each point of classification in the algorithm.
+The fitted model has an accuracy of __0.961 or 96.1%__ which was obtained by trying __`r modRF$finalModel$mtry` variables (mtry)__ at each point of classification in the algorithm.
 
-The final model shows that we have an out-of-sample/bag error rate of 3.41%. 
+The final model shows that we have an __out-of-sample/bag error rate of approximately 3.3%__. 
 The confusion matrix in addition shows that we have a reasonably low values for the classes.error.
 
 ```{r warning=FALSE}
 modRF
 modRF$finalModel
 ```
-## What does this tell us?
+### What does this tell us?
 Our goal is to predict how well a person performs an exercise given the sensor values that we monitor. 
 
 ```{r echo=FALSE,warning=FALSE}
@@ -82,7 +102,9 @@ predRF <- predict(modRF$finalModel, newdata=test90pct)
 sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100
 ```
 
-After predicting the values we then compute the percentage accuracy. We see that the model prediction is accurate `r sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100`% of the time. The plot A in appendix shows the error rate when classifying each of the different classe's.
+After predicting the values we then compute the percentage accuracy. We see that the model prediction is accurate __`r sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100`%__ of the time. The plot A in appendix shows the error rate when classifying each of the different classe's.
+
+The second plot (B) in the appendix shows 2 figures showing the impact of variables on the accuracy of the classification done by the model based on Gini index.
 
 ## Predict the values for the real test data set
 We then use the real test data of 20 and predict the classe values for these using the fitted random forest model that we have built. These are then uploaded to the submission site. The results are not displayed here. 
@@ -115,9 +137,13 @@ write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
 ```
 \pagebreak
 
+
+
 APPENDIX
 ========
-### Plot of error rate for each classe value by the number of trees
+
+
+### Plot A: Error rate for each classe value by the number of trees
 
 ```{r echo=FALSE, warning=FALSE,message=FALSE}
 colnameserrrate = colnames(modRF$finalModel$err.rate)
@@ -129,4 +155,10 @@ plot(modRF$finalModel, log="y")
 par(mar=c(5,0,4,2))
 plot(c(0,1), type="n", axes=F, xlab="", ylab="")
 legend("top", colnamestoplot, col=1:4, cex=0.8, fill=1:4)
+```
+
+### Plot B: Top 20 variables by importance measured by impact on GiniIndex
+
+```{r echo=FALSE,warning=FALSE, message=FALSE}
+varImpPlot(modRF$finalModel, n.var=20, main="Plot of top 20 variables by importance")
 ```
