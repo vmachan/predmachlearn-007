@@ -1,23 +1,27 @@
 ---
-title: "Predictive Machine Learning - Assignment Write-up"
+title: "Human Activity Recognition using Predictive Machine Learning"
 author: "Vinayak D. Machan"
 date: "Tuesday, November 18, 2014"
 output: html_document
 ---
 
-## Background
+## Executive Summary
 
-Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
 
-## Data 
+## Data Processing
 
 The training data for this project was downloaded from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
 
 The test data for this project was downloaded from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 
-## Data Preparation
+### Initial Data Inspection
 
-The data has about 158 variables that can be used to predict the dependent variable - classe. On closer examination quite a few of these variables have NA or null values and appear to not be relevant. We remove these variables from our training data set to get a resulting 58 predictor variables. Even these are more than what a linear regression can reasonably handle. 
+The data has about 158 variables that can be used to predict the dependent variable - classe. On closer examination quite a few of these variables have NA or null values and appear to not be relevant. 
+
+### Data Preparation
+
+We remove these variables from our training data set to get a resulting about 54 predictor variables. Even these are more than what a linear regression can reasonably handle. 
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 # Load requisite packages
@@ -46,7 +50,7 @@ test90pct <- rel_pml_training[-in_train10pct,]
 train10pct$classe <- factor(train10pct$classe)
 test90pct$classe <- factor(test90pct$classe)
 ```
-### Model Comparisons
+## Model Building and Comparisons
 ```{r echo=FALSE,warning=FALSE,message=FALSE}
 # Use the train function default without specifying any method for the model
 modDefault <- train(classe ~ ., train10pct, trControl=trainControl(method="cv", number=7), preProcess=c("pca"))
@@ -59,7 +63,7 @@ predGBM <- predict(modGBM, newdata=test90pct)
 accuracyGBM <- sum(predGBM==test90pct$classe)/(nrow(test90pct)) * 100
 ```
 
-A few kinds of techniques were tried to assess what kind of model would work better. The caret train function was used for all of these
+A few kinds of techniques were tried to assess what kind of model would work better. The caret train function was used for all of these. Given that the problem is that of classification the results into 1 of 5 discrete classe values, regression appears to be less suited and something like random forests look to be better suited. Having said that there are advanced regression techniques such as Linear Discriminant analysis (LDA) which have not been attempted here, the rationale being the improvement in accuracy over random forests is not much.
 
 * __Default:__ With preprocessing using principal component analysis (PCA) to reduce the number of variables further. No model type was specified using the method parameter. This was the lowest accurate model with about `r accuracyDefault`% accuracy. Caret's train used the random forest model but stopped at an mtry value of 2.
 * __Boosting:__ With model type of GBM (Boosting). This was better than the above and provided an accuracy of around `r accuracyGBM`%.
@@ -70,7 +74,7 @@ Based on the above, the random forests model was selected for further processing
 ### Now fit a model using random forests to the training partition
 We use the training set to build a random forest model. We then evaluate using the corresponding test set. We repeat this for several iterations.
 
-We chose random forests as this is an ensemble learning method used for classification and regression.  Many samples are selected in the process and a measure of variable importance can be obtained. Also this is appropriate when working with an extremely high number of candidate variables that need to be reduced as in our case with the already reduced set of 58. We do a 7 fold cross validation using the caret libraries train control parameters.
+We chose random forests as this is an ensemble learning method used for classification and regression.  Many samples are selected in the process and a measure of variable importance can be obtained. Also this is appropriate when working with an extremely high number of candidate variables that need to be reduced as in our case with the already reduced set of 54. We do a 7 fold cross validation using the caret libraries train control parameters.
 
 ```{r echo=FALSE,warning=FALSE, message=FALSE}
 # modRF <- randomForest(classe ~ ., data=train10pct, proximity=TRUE, type=classification)
@@ -88,7 +92,7 @@ The confusion matrix in addition shows that we have a reasonably low values for 
 modRF
 modRF$finalModel
 ```
-### What does this tell us?
+## Conclusion: What does this tell us?
 Our goal is to predict how well a person performs an exercise given the sensor values that we monitor. 
 
 ```{r echo=FALSE,warning=FALSE}
@@ -102,11 +106,11 @@ predRF <- predict(modRF$finalModel, newdata=test90pct)
 sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100
 ```
 
-After predicting the values we then compute the percentage accuracy. We see that the model prediction is accurate __`r sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100`%__ of the time. The plot A in appendix shows the error rate when classifying each of the different classe's.
+1. After predicting the values we then compute the percentage accuracy. We see that the model prediction is accurate __`r sum(predRF==test90pct$classe)/(nrow(test90pct)) * 100`%__ of the time. The first plot (A) in appendix shows the error rate when classifying each of the different classe's.
 
-The second plot (B) in the appendix shows 2 figures showing the impact of variables on the accuracy of the classification done by the model based on Gini index.
+2. The second plot (B) in the appendix shows the impact of variables on the accuracy of the classification done by the model based on Gini index. 
 
-## Predict the values for the real test data set
+## Next steps: Predict the values for the real test data set
 We then use the real test data of 20 and predict the classe values for these using the fitted random forest model that we have built. These are then uploaded to the submission site. The results are not displayed here. 
 
 ```{r echo=FALSE,warning=FALSE, message=FALSE}
@@ -141,7 +145,6 @@ write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
 
 APPENDIX
 ========
-
 
 ### Plot A: Error rate for each classe value by the number of trees
 
